@@ -1,0 +1,92 @@
+NGINX REVERSE PROXY
+
+*****************************************************************************************************************************************************
+STEP 1: Install Nginx Web-server
+
+sudo apt install nginx
+sudo systemctl enable nginx
+
+*****************************************************************************************************************************************************
+STEP 2: Disable pre-configured Nginx host
+
+sudo unlink /etc/nginx/sites-enabled/default
+
+*****************************************************************************************************************************************************
+STEP 3: Remove all file from "sites-enabled" directory (if any)
+
+sudo rm -rf /etc/nginx/sites-enabled/*
+
+*****************************************************************************************************************************************************
+STEP 4: Create a Reverse Proxy configuration file
+
+cd /etc/nginx/sites-available
+sudo nano <file_name>.conf
+
+Paste the following:
+#############################################################################################################
+For http access:
+server {
+        listen 80; (you can change it to any port, eg:8080)
+		server_name <domain_name> (need to map in dns record)
+		
+        access_log /var/log/nginx/reverse-access.log;
+        error_log /var/log/nginx/reverse-error.log;
+
+        location / {
+                    proxy_pass http://<internal_ip_address/domain_name>:<application_running_port>;
+  }
+}
+
+For https access:
+server {
+        listen 80; (you can change it to any port, eg:8080)
+		server_name <domain_name> (need to map in dns record)
+
+        access_log /var/log/nginx/reverse-access.log;
+        error_log /var/log/nginx/reverse-error.log;
+}
+
+server {
+       listen 443 ssl;
+	   server_name <domain_name> (need to map in dns record)
+    ssl_session_cache  builtin:1000  shared:SSL:10m;
+    ssl_protocols  TLSv1.2;
+    ssl_ciphers HIGH:!aNULL:!eNULL:!EXPORT:!CAMELLIA:!DES:!MD5:!PSK:!RC4;
+    ssl_prefer_server_ciphers on;
+        ssl_certificate /etc/nginx/ssl/nginx-selfsigned.crt; (can be any name)
+        ssl_certificate_key /etc/nginx/ssl/nginx-selfsigned.key; (can be any name)
+        access_log /var/log/nginx/reverse-access.log;
+        error_log /var/log/nginx/reverse-error.log;
+        location / {
+                    proxy_pass http://<internal_ip_address/domain_name>:<application_running_port>;
+  }
+}
+#############################################################################################################
+
+To create ssl_certificate and ssl_certificate_key
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
+
+
+sudo mkdir /etc/nginx/ssl
+sudo cp /etc/ssl/private/nginx-selfsigned.key /etc/nginx/ssl/nginx-selfsigned.key
+sudo cp /etc/ssl/certs/nginx-selfsigned.crt /etc/nginx/ssl/nginx-selfsigned.crt
+
+*****************************************************************************************************************************************************
+STEP 5: Activate the file by creating symlink
+(Note: do not create a soft-link for default file in sites-enabled)
+
+sudo ln -s /etc/nginx/sites-available/<file_name>.conf /etc/nginx/sites-enabled/
+
+*****************************************************************************************************************************************************
+STEP 6: Test configuration file
+
+sudo nginx -t
+
+*****************************************************************************************************************************************************
+STEP 7: Restart Ngnix
+
+sudo systemctl daemon-reload
+sudo systemctl restart nginx
+sudo systemctl status nginx
+
+*****************************************************************************************************************************************************
